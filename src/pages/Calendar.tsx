@@ -3,8 +3,8 @@ import { CalendarDays, ChevronLeft, ChevronRight, RotateCcw, XCircle, Clock } fr
 import { actions, useDB } from '../lib/db'
 import { calendarDay, classById } from '../lib/selectors'
 import { addDays, fmtDateShort, toISO, todayISO } from '../lib/format'
-import { WEEKDAYS, type Weekday } from '../lib/types'
-import { Badge, Button, Card, EmptyState, Modal, PageHeader, cn } from '../components/common'
+import { WEEKDAYS } from '../lib/types'
+import { Badge, Button, Modal, PageHeader, cn } from '../components/common'
 import { AttendanceEditor } from '../components/AttendanceEditor'
 
 function mondayOf(iso: string): string {
@@ -52,7 +52,7 @@ export default function Calendar() {
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-7">
         {dates.map((date) => {
-          const wd = WEEKDAYS[(new Date(date + 'T00:00:00').getDay() || 7) as Weekday - 1]
+          const wd = WEEKDAYS[(new Date(date + 'T00:00:00').getDay() || 7) - 1]
           const entries = calendarDay(db, date)
           const isToday = date === today
           return (
@@ -75,7 +75,6 @@ export default function Calendar() {
                       present={e.present}
                       absent={e.absent}
                       hasOverride={!!e.session}
-                      date={date}
                       onRoll={() => setEditor({ classId: e.classId, date })}
                       onCancel={() => actions.setSessionStatus(e.classId, date, 'cancelled')}
                       onPostpone={() => setPostpone({ classId: e.classId, date })}
@@ -109,7 +108,6 @@ function Entry({
   present,
   absent,
   hasOverride,
-  date,
   onRoll,
   onCancel,
   onPostpone,
@@ -120,7 +118,6 @@ function Entry({
   present: number
   absent: number
   hasOverride: boolean
-  date: string
   onRoll: () => void
   onCancel: () => void
   onPostpone: () => void

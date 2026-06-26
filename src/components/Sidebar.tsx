@@ -1,7 +1,9 @@
 // 侧边栏：品牌 + 导航 + WEEKLY 周课表
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
+  Bell,
   CalendarDays,
+  CalendarRange,
   ClipboardCheck,
   Clock,
   Folders,
@@ -11,7 +13,7 @@ import {
   Users,
 } from 'lucide-react'
 import { useDB, actions, isCloud } from '../lib/db'
-import { activeStudents, queuedStudents, weeklyCounts } from '../lib/selectors'
+import { activeStudents, alertCount, queuedStudents, weeklyCounts } from '../lib/selectors'
 import { WEEKDAYS, type Weekday } from '../lib/types'
 import { useToast, Logo, cn } from './common'
 
@@ -20,14 +22,16 @@ type NavItem = {
   label: string
   icon: LucideIcon
   end?: boolean
-  count?: 'active' | 'queued'
+  count?: 'active' | 'queued' | 'alerts'
 }
 
 const NAV: NavItem[] = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
+  { to: '/alerts', label: '提醒', icon: Bell, count: 'alerts' },
   { to: '/students', label: '全部学生', icon: Users, count: 'active' },
   { to: '/classes', label: '班级', icon: Folders },
   { to: '/daily', label: '每日课程', icon: CalendarDays },
+  { to: '/calendar', label: '课程日历', icon: CalendarRange },
   { to: '/queued', label: '待排课', icon: Clock, count: 'queued' },
   { to: '/attendance', label: '考勤统计', icon: ClipboardCheck },
 ]
@@ -38,6 +42,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const navigate = useNavigate()
   const active = activeStudents(db).length
   const queued = queuedStudents(db).length
+  const alertsN = alertCount(db)
   const counts = weeklyCounts(db)
   const today = (new Date().getDay() || 7) as Weekday
 
@@ -59,7 +64,13 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         {NAV.map((item) => {
           const Icon = item.icon
           const count =
-            item.count === 'active' ? active : item.count === 'queued' ? queued : null
+            item.count === 'active'
+              ? active
+              : item.count === 'queued'
+                ? queued
+                : item.count === 'alerts'
+                  ? alertsN
+                  : null
           return (
             <NavLink
               key={item.to}

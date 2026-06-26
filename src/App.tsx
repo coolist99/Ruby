@@ -7,6 +7,7 @@ import { Sidebar } from './components/Sidebar'
 import Dashboard from './pages/Dashboard'
 import Students from './pages/Students'
 import Classes from './pages/Classes'
+import Calendar from './pages/Calendar'
 import DailyClasses from './pages/DailyClasses'
 import Queued from './pages/Queued'
 import Attendance from './pages/Attendance'
@@ -85,6 +86,7 @@ export default function App() {
           <Route index element={<Dashboard />} />
           <Route path="students" element={<Students />} />
           <Route path="classes" element={<Classes />} />
+          <Route path="calendar" element={<Calendar />} />
           <Route path="daily" element={<DailyClasses />} />
           <Route path="queued" element={<Queued />} />
           <Route path="attendance" element={<Attendance />} />

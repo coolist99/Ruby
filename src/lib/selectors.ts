@@ -90,6 +90,29 @@ export function queuedStudents(db: DB): Student[] {
 export function activeStudents(db: DB): Student[] {
   return db.students.filter((s) => s.status === 'active')
 }
+
+/** 私教：到达提醒节点（第 alertAt 节）或已满周期该续费的 */
+export function rechargeAlerts(db: DB): { student: Student; taken: number; cycleSize: number; over: boolean }[] {
+  const out: { student: Student; taken: number; cycleSize: number; over: boolean }[] = []
+  for (const s of activeStudents(db)) {
+    if (classOf(db, s)?.type !== 'private') continue
+    const cyc = cycleProgress(db, s)
+    if (cyc.alert || cyc.over) out.push({ student: s, taken: cyc.taken, cycleSize: cyc.cycleSize, over: cyc.over })
+  }
+  return out
+}
+
+/** 课时 ≤ 0 的在读学生（欠费 / 用完）*/
+export function lowCreditStudents(db: DB): { student: Student; credits: number }[] {
+  return activeStudents(db)
+    .map((s) => ({ student: s, credits: remainingCredits(db, s.id) }))
+    .filter((x) => x.credits <= 0)
+}
+
+/** 提醒面板待办总数（续费 + 课时不足）*/
+export function alertCount(db: DB): number {
+  return rechargeAlerts(db).length + lowCreditStudents(db).length
+}
 export function weeklyCounts(db: DB): number[] {
   const counts = [0, 0, 0, 0, 0, 0, 0]
   db.students.forEach((s) => {
