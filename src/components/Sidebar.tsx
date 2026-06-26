@@ -88,13 +88,15 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
             >
               <Icon size={18} className="shrink-0" />
               <span className="flex-1">{item.label}</span>
-              {count !== null && (
+              {count !== null && !(item.count === 'alerts' && count === 0) && (
                 <span
                   className={cn(
                     'min-w-6 rounded-full px-1.5 py-0.5 text-center text-xs font-bold tabular-nums',
-                    item.count === 'queued'
-                      ? 'bg-neg/15 text-neg'
-                      : 'bg-black/5 text-muted',
+                    item.count === 'alerts'
+                      ? 'bg-neg text-white'
+                      : item.count === 'queued'
+                        ? 'bg-neg/15 text-neg'
+                        : 'bg-black/5 text-muted',
                   )}
                 >
                   {count}

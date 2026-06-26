@@ -1,11 +1,12 @@
 // 考勤编辑器：对某班某天的课，逐个学生标记 到 / 缺（含缺勤原因）
 import { useEffect, useState } from 'react'
-import { ClipboardCheck } from 'lucide-react'
+import { ClipboardCheck, Download } from 'lucide-react'
 import { actions, useDB } from '../lib/db'
 import { classById } from '../lib/selectors'
+import { exportAttendancePDF } from '../lib/pdf'
 import { fmtDate, relativeDay } from '../lib/format'
 import type { AttendanceStatus } from '../lib/types'
-import { Button, Modal, cn } from './common'
+import { Button, Modal, useToast, cn } from './common'
 
 export function AttendanceEditor({
   open,
@@ -19,6 +20,7 @@ export function AttendanceEditor({
   date: string
 }) {
   const db = useDB()
+  const toast = useToast()
   const [sessionId, setSessionId] = useState<string>('')
 
   useEffect(() => {
@@ -55,6 +57,15 @@ export function AttendanceEditor({
       width="max-w-lg"
       footer={
         <>
+          {cls?.type === 'group' && (
+            <Button
+              variant="soft"
+              className="mr-auto"
+              onClick={() => exportAttendancePDF(db, classId, date).then(() => toast('已生成 PDF 📄'))}
+            >
+              <Download size={16} /> 导出 PDF
+            </Button>
+          )}
           <Button variant="soft" onClick={markAllPresent}>全部到齐</Button>
           <Button variant="grad" onClick={onClose}>完成</Button>
         </>

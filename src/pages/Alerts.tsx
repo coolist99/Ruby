@@ -1,9 +1,9 @@
+import { type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { AlertCircle, Bell, CalendarCheck, Coins, Crown } from 'lucide-react'
 import { useDB } from '../lib/db'
 import { calendarDay, classById, lowCreditStudents, rechargeAlerts } from '../lib/selectors'
 import { addDays, fmtDateShort, relativeDay, todayISO } from '../lib/format'
-import { WEEKDAYS } from '../lib/types'
 import { Badge, Card, CreditPill, EmptyState, PageHeader } from '../components/common'
 
 export default function Alerts() {
@@ -12,7 +12,7 @@ export default function Alerts() {
   const lows = lowCreditStudents(db)
   const today = todayISO()
   const upcoming = Array.from({ length: 7 }, (_, i) => addDays(today, i)).flatMap((d) =>
-    calendarDay(db, d).map((e) => ({ date: d, classId: e.classId, ...e })),
+    calendarDay(db, d).map((e) => ({ date: d, ...e })),
   )
 
   const empty = recharges.length === 0 && lows.length === 0 && upcoming.length === 0
@@ -106,10 +106,10 @@ function Section({
   children,
 }: {
   title: string
-  icon: React.ReactNode
+  icon: ReactNode
   tone: string
   count: number
-  children: React.ReactNode
+  children: ReactNode
 }) {
   return (
     <Card className="mb-5">
@@ -123,7 +123,7 @@ function Section({
   )
 }
 
-function AlertRow({ to, color, children }: { to: string; color: string; children: React.ReactNode }) {
+function AlertRow({ to, color, children }: { to: string; color: string; children: ReactNode }) {
   return (
     <Link to={to} className="flex items-center gap-3 rounded-2xl border border-line bg-white/60 px-3.5 py-2.5 transition hover:bg-white">
       <AlertCircle size={16} style={{ color }} />

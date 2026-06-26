@@ -5,6 +5,7 @@ import { Logo, ToastProvider } from './components/common'
 import { useDBReady } from './lib/db'
 import { Sidebar } from './components/Sidebar'
 import Dashboard from './pages/Dashboard'
+import Alerts from './pages/Alerts'
 import Students from './pages/Students'
 import Classes from './pages/Classes'
 import Calendar from './pages/Calendar'
@@ -84,6 +85,7 @@ export default function App() {
       <Routes>
         <Route element={<Layout />}>
           <Route index element={<Dashboard />} />
+          <Route path="alerts" element={<Alerts />} />
           <Route path="students" element={<Students />} />
           <Route path="classes" element={<Classes />} />
           <Route path="calendar" element={<Calendar />} />
