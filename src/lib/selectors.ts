@@ -127,6 +127,34 @@ export function classSessions(db: DB, classId: string): Session[] {
     .sort((a, b) => (a.date < b.date ? 1 : -1))
 }
 
+/** 某班在指定日期区间内的考勤矩阵（学生 × 课次日期），用于按月/周期导出 */
+export function classPeriodGrid(
+  db: DB,
+  classId: string,
+  startISO: string,
+  endISO: string,
+): {
+  students: Student[]
+  dates: string[]
+  status: Record<string, Record<string, AttendanceStatus | undefined>>
+} {
+  const students = db.students.filter((s) => s.classId === classId && s.status === 'active')
+  const dates = db.sessions
+    .filter((s) => s.classId === classId && s.date >= startISO && s.date <= endISO)
+    .map((s) => s.date)
+    .sort()
+  const status: Record<string, Record<string, AttendanceStatus | undefined>> = {}
+  students.forEach((st) => {
+    status[st.id] = {}
+  })
+  db.attendances.forEach((a) => {
+    const ses = db.sessions.find((s) => s.id === a.sessionId)
+    if (!ses || ses.classId !== classId || !dates.includes(ses.date)) return
+    if (status[a.studentId]) status[a.studentId][ses.date] = a.status
+  })
+  return { students, dates, status }
+}
+
 /** 班级的固定上课星期（取该班在读学生的；私教即该学生）*/
 export function classWeekday(db: DB, classId: string): number | undefined {
   return db.students.find((s) => s.classId === classId && s.status === 'active' && s.weekday)?.weekday
