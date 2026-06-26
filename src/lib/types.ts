@@ -1,16 +1,15 @@
-// Cathy's Room — 数据模型
-// 设计原则：课时是"流水账(ledger)"。剩余课时 = 该学生所有 transaction.delta 之和。
-// 考勤 = type:'class' 的 transaction。排课 = student.weekday。
-// 这样一套表能同时支撑「剩余课时 / 考勤统计 / 学生档案报告」三大视图。
+// Ruby's Room — 数据模型 v2
+// 班型(私教/班课) + 收费周期 + 课次 + 出勤。
+// 上课次数 / 课时 = 由 attendances(present) 派生；transactions 只记充值与升级。
 
 export type Weekday = 1 | 2 | 3 | 4 | 5 | 6 | 7 // 1=周一 … 7=周日
 
 export const WEEKDAYS: {
   value: Weekday
-  short: string // Mon
-  en: string // Monday
-  cn: string // 周一
-  color: string // 主题色 hex
+  short: string
+  en: string
+  cn: string
+  color: string
   emoji: string
 }[] = [
   { value: 1, short: 'Mon', en: 'Monday', cn: '周一', color: '#ef6c5b', emoji: '🔴' },
@@ -22,48 +21,79 @@ export const WEEKDAYS: {
   { value: 7, short: 'Sun', en: 'Sunday', cn: '周日', color: '#ef5b8a', emoji: '🌸' },
 ]
 
-// 班级 / 课程（一个班对应一本教材/一套进度）
+export type ClassType = 'private' | 'group'
+
+// 班级 / 课程
 export interface ClassRoom {
   id: string
-  name: string // "Fancy Nancy" / "外刊" / "科一"
-  book?: string // 教材备注
-  color: string // 主题色 hex
+  name: string
+  book?: string
+  color: string
+  type: ClassType // 私教 / 班课
   createdAt: string
 }
 
-export type StudentStatus = 'active' | 'queued' // 在读 / 待排课
+export type StudentStatus = 'active' | 'queued'
 
 // 学生
 export interface Student {
   id: string
-  name: string // Iris / Cici …
+  name: string
   classId: string
-  level?: string // 当前级别：L1 / L3 / Harry Potter
-  weekday?: Weekday // 排课星期；待排课学生通常没有
+  level?: string
+  weekday?: Weekday
   status: StudentStatus
-  queueTag?: string // 待排课标签："RE1待组班" / "试听"
-  notes?: string // 备注 / 近期教材
+  queueTag?: string
+  notes?: string
+  cycleSize: number // 私教收费周期长度（默认 10）
+  alertAt: number // 周期内第几节提醒（默认 9）
   createdAt: string
 }
 
-export type TxnType = 'class' | 'recharge' | 'level_up'
+export type SessionStatus = 'scheduled' | 'done' | 'cancelled' | 'postponed'
 
-// 课时流水（不可变账本）
+// 课次：某班在某天的一节课
+export interface Session {
+  id: string
+  classId: string
+  date: string // YYYY-MM-DD
+  status: SessionStatus
+  note?: string
+  createdAt: string
+}
+
+export type AttendanceStatus = 'present' | 'absent' | 'late'
+
+// 出勤：某学生在某课次的出勤状态
+export interface Attendance {
+  id: string
+  sessionId: string
+  studentId: string
+  status: AttendanceStatus
+  topic?: string // 本节课内容（如 Chapter 1-2）
+  note?: string
+  createdAt: string
+}
+
+export type TxnType = 'recharge' | 'level_up'
+
+// 流水：充值 / 升级
 export interface Transaction {
   id: string
   studentId: string
   type: TxnType
-  date: string // YYYY-MM-DD
-  delta: number // class: -1, recharge: +N, level_up: 0
-  topic?: string // "Chapter 1-Chapter 2"
-  notes?: string // 反馈 / 课堂记录："复述做得非常棒❤️"
-  amount?: number // 充值金额 ¥（仅 recharge）
-  newLevel?: string // 升级后的级别（仅 level_up）
+  date: string
+  delta: number
+  notes?: string
+  amount?: number
+  newLevel?: string
   createdAt: string
 }
 
 export interface DB {
   classes: ClassRoom[]
   students: Student[]
+  sessions: Session[]
+  attendances: Attendance[]
   txns: Transaction[]
 }

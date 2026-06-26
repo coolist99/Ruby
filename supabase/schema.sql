@@ -1,13 +1,10 @@
 -- ============================================================
---  Ruby's Room · Supabase 建表脚本
---  使用方法：
---   1. 打开 https://supabase.com/dashboard → 选你的项目
---   2. 左侧 SQL Editor → New query
---   3. 把本文件全部内容粘进去 → Run
---   可重复执行（带 if not exists / drop）。
+--  Ruby's Room · Supabase 建表脚本 v2（班型 + 周期 + 课次 + 出勤）
+--  使用方法：Supabase Dashboard → SQL Editor → 粘贴 → Run（可重复执行）
 -- ============================================================
 
--- 干净起见：先删旧表（首次运行无所谓；想保留旧数据就注释掉这三行）
+drop table if exists public.attendances cascade;
+drop table if exists public.sessions cascade;
 drop table if exists public.transactions cascade;
 drop table if exists public.students cascade;
 drop table if exists public.classes cascade;
@@ -18,6 +15,7 @@ create table public.classes (
   name       text not null,
   book       text,
   color      text not null default '#9b6bef',
+  type       text not null default 'group' check (type in ('private','group')),  -- 私教 / 班课
   created_at timestamptz not null default now()
 );
 
@@ -27,52 +25,80 @@ create table public.students (
   name       text not null,
   class_id   text references public.classes(id) on delete set null,
   level      text,
-  weekday    int,                         -- 1=周一 … 7=周日
+  weekday    int,                         -- 1=周一 … 7=周日（固定排课）
   status     text not null default 'active' check (status in ('active','queued')),
   queue_tag  text,
   notes      text,
+  cycle_size int not null default 10,      -- 私教收费周期长度（默认10节）
+  alert_at   int not null default 9,       -- 周期内第几节提醒续费（默认第9节）
   created_at timestamptz not null default now()
 );
 
--- ---------- 课时流水（不可变账本）----------
+-- ---------- 课次（一次具体的课）----------
+create table public.sessions (
+  id         text primary key,
+  class_id   text not null references public.classes(id) on delete cascade,
+  date       date not null,
+  status     text not null default 'scheduled' check (status in ('scheduled','done','cancelled','postponed')),
+  note       text,
+  created_at timestamptz not null default now(),
+  unique (class_id, date)
+);
+
+-- ---------- 出勤（每个学生在某课次的出勤状态）----------
+create table public.attendances (
+  id         text primary key,
+  session_id text not null references public.sessions(id) on delete cascade,
+  student_id text not null references public.students(id) on delete cascade,
+  status     text not null default 'present' check (status in ('present','absent','late')),
+  topic      text,
+  note       text,
+  created_at timestamptz not null default now(),
+  unique (session_id, student_id)
+);
+
+-- ---------- 流水（仅充值 / 升级；上课次数由 attendances 派生）----------
 create table public.transactions (
   id         text primary key,
   student_id text not null references public.students(id) on delete cascade,
-  type       text not null check (type in ('class','recharge','level_up')),
+  type       text not null check (type in ('recharge','level_up')),
   date       date not null,
-  delta      int not null default 0,       -- class: -1, recharge: +N, level_up: 0
-  topic      text,
+  delta      int not null default 0,
   notes      text,
-  amount     int,                          -- 充值金额 ¥（仅 recharge）
-  new_level  text,                         -- 升级后级别（仅 level_up）
+  amount     int,                          -- 充值金额 ¥
+  new_level  text,                          -- 升级后级别
   created_at timestamptz not null default now()
 );
 
+create index on public.sessions (class_id, date);
+create index on public.attendances (session_id);
+create index on public.attendances (student_id);
 create index on public.transactions (student_id);
-create index on public.transactions (date);
-create index on public.students (class_id);
 
--- ---------- 行级安全 RLS ----------
--- 当前是个人工具、单用户，先用「全开放」策略（持有 anon key 即可读写）。
--- 以后加登录时，把 using/check 改成 auth.uid() 校验即可。
+-- ---------- 行级安全（个人单用户，先全开放；加登录时改 auth.uid()）----------
 alter table public.classes      enable row level security;
 alter table public.students     enable row level security;
+alter table public.sessions     enable row level security;
+alter table public.attendances  enable row level security;
 alter table public.transactions enable row level security;
 
--- classes
-create policy "cls read"   on public.classes for select using (true);
-create policy "cls insert" on public.classes for insert with check (true);
-create policy "cls update" on public.classes for update using (true) with check (true);
-create policy "cls delete" on public.classes for delete using (true);
--- students
-create policy "stu read"   on public.students for select using (true);
-create policy "stu insert" on public.students for insert with check (true);
-create policy "stu update" on public.students for update using (true) with check (true);
-create policy "stu delete" on public.students for delete using (true);
--- transactions
-create policy "txn read"   on public.transactions for select using (true);
-create policy "txn insert" on public.transactions for insert with check (true);
-create policy "txn update" on public.transactions for update using (true) with check (true);
-create policy "txn delete" on public.transactions for delete using (true);
-
--- 跑完后，App 首次启动会自动把示例数据同步进来（见 scripts/seed）。
+create policy "cls r" on public.classes for select using (true);
+create policy "cls c" on public.classes for insert with check (true);
+create policy "cls u" on public.classes for update using (true) with check (true);
+create policy "cls d" on public.classes for delete using (true);
+create policy "stu r" on public.students for select using (true);
+create policy "stu c" on public.students for insert with check (true);
+create policy "stu u" on public.students for update using (true) with check (true);
+create policy "stu d" on public.students for delete using (true);
+create policy "ses r" on public.sessions for select using (true);
+create policy "ses c" on public.sessions for insert with check (true);
+create policy "ses u" on public.sessions for update using (true) with check (true);
+create policy "ses d" on public.sessions for delete using (true);
+create policy "att r" on public.attendances for select using (true);
+create policy "att c" on public.attendances for insert with check (true);
+create policy "att u" on public.attendances for update using (true) with check (true);
+create policy "att d" on public.attendances for delete using (true);
+create policy "txn r" on public.transactions for select using (true);
+create policy "txn c" on public.transactions for insert with check (true);
+create policy "txn u" on public.transactions for update using (true) with check (true);
+create policy "txn d" on public.transactions for delete using (true);

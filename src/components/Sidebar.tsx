@@ -4,6 +4,7 @@ import {
   CalendarDays,
   ClipboardCheck,
   Clock,
+  Folders,
   LayoutDashboard,
   type LucideIcon,
   RotateCcw,
@@ -25,6 +26,7 @@ type NavItem = {
 const NAV: NavItem[] = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/students', label: '全部学生', icon: Users, count: 'active' },
+  { to: '/classes', label: '班级', icon: Folders },
   { to: '/daily', label: '每日课程', icon: CalendarDays },
   { to: '/queued', label: '待排课', icon: Clock, count: 'queued' },
   { to: '/attendance', label: '考勤统计', icon: ClipboardCheck },
