@@ -11,10 +11,10 @@ import type {
   Weekday,
 } from './types'
 
-const url = import.meta.env.VITE_SUPABASE_URL as string | undefined
+const url = (typeof window !== 'undefined' ? window.location.origin + (import.meta.env.BASE_URL.replace(/\/$/, '')) : '')
 const anon = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
 
-export const isSupabaseConfigured = Boolean(url && anon)
+export const isSupabaseConfigured = Boolean(anon)
 
 export const supabase = isSupabaseConfigured
   ? createClient(url!, anon!, { auth: { persistSession: false } })

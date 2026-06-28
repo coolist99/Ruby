@@ -1,4 +1,4 @@
-// Ruby's Room — 数据模型 v2
+// Ruby's Class — 数据模型 v2
 // 班型(私教/班课) + 收费周期 + 课次 + 出勤。
 // 上课次数 / 课时 = 由 attendances(present) 派生；transactions 只记充值与升级。
 

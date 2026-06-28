@@ -24,7 +24,7 @@ function Layout() {
           <div className="animate-pulse">
             <Logo size={56} />
           </div>
-          <div className="text-sm font-semibold text-muted">Ruby's Room 加载中…</div>
+          <div className="text-sm font-semibold text-muted">Ruby's Class 加载中…</div>
         </div>
       </div>
     )
@@ -67,7 +67,7 @@ function Layout() {
           </button>
           <div className="flex items-center gap-2">
             <Logo size={30} />
-            <span className="font-bold text-ink">Ruby's Room</span>
+            <span className="font-bold text-ink">Ruby's Class</span>
           </div>
         </header>
 

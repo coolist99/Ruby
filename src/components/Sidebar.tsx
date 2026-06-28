@@ -9,13 +9,12 @@ import {
   Folders,
   LayoutDashboard,
   type LucideIcon,
-  RotateCcw,
   Users,
 } from 'lucide-react'
-import { useDB, actions, isCloud } from '../lib/db'
+import { useDB, isCloud } from '../lib/db'
 import { activeStudents, alertCount, queuedStudents, weeklyCounts } from '../lib/selectors'
 import { WEEKDAYS, type Weekday } from '../lib/types'
-import { useToast, Logo, cn } from './common'
+import { Logo, cn } from './common'
 
 type NavItem = {
   to: string
@@ -38,7 +37,6 @@ const NAV: NavItem[] = [
 
 export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
   const db = useDB()
-  const toast = useToast()
   const navigate = useNavigate()
   const active = activeStudents(db).length
   const queued = queuedStudents(db).length
@@ -52,7 +50,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
       <div className="flex items-center gap-3 px-1 pt-1">
         <Logo size={44} />
         <div className="leading-tight">
-          <div className="text-lg font-bold tracking-tight text-ink">Ruby's Room</div>
+          <div className="text-lg font-bold tracking-tight text-ink">Ruby's Class</div>
           <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-brand-400">
             Soft &amp; Healing
           </div>
@@ -152,18 +150,7 @@ export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
           })}
         </div>
 
-        <button
-          onClick={() => {
-            actions.resetDemo()
-            toast('已重置为示例数据', 'info')
-          }}
-          className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-2xl px-3 py-2 text-xs font-semibold text-muted transition hover:bg-white/70 hover:text-ink"
-        >
-          <RotateCcw size={13} />
-          重置示例数据
-        </button>
-
-        <div className="mt-2 px-1 text-center text-[10px] font-semibold text-muted">
+<div className="mt-2 px-1 text-center text-[10px] font-semibold text-muted">
           {isCloud() ? '☁️ 云端已同步' : '💾 本地存储'}
         </div>
       </div>

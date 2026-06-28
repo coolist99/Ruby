@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from 'react'
 import { createPortal } from 'react-dom'
-import { CheckCircle2, Feather, Info, X } from 'lucide-react'
+import { CheckCircle2, Info, X } from 'lucide-react'
 
 export function cn(...parts: Array<string | false | null | undefined>): string {
   return parts.filter(Boolean).join(' ')
@@ -52,17 +52,41 @@ export function PageHeader({
 }
 
 // ───────── Logo ─────────
+// Ruby's Class — 温暖柔和的 "R" 字母 + 书本翻开造型
 export function Logo({ size = 40 }: { size?: number }) {
   return (
     <div
-      className="grid place-items-center rounded-2xl text-white shadow-soft"
+      className="grid place-items-center rounded-2xl text-white shadow-soft overflow-hidden"
       style={{
         width: size,
         height: size,
         backgroundImage: 'linear-gradient(135deg, var(--color-brand-300), var(--color-brand-500))',
       }}
     >
-      <Feather size={size * 0.5} strokeWidth={2.2} />
+      <svg
+        width={size * 0.62}
+        height={size * 0.62}
+        viewBox="0 0 32 32"
+        fill="none"
+        xmlns="http://www.w3.org/2000/svg"
+      >
+        {/* 翻开的书本底部 */}
+        <path
+          d="M6 22 C6 22 10 20.5 16 21 C22 20.5 26 22 26 22 L26 25 C26 25 22 23.5 16 24 C10 23.5 6 25 6 25 Z"
+          fill="rgba(255,255,255,0.35)"
+        />
+        {/* R 字母主体 */}
+        <path
+          d="M10 7 L10 20 M10 7 L16 7 C19 7 21 9 21 12 C21 14.5 19 16.5 16 16.5 L10 16.5 M16 16.5 L21 20"
+          stroke="white"
+          strokeWidth="2.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          fill="none"
+        />
+        {/* 小花瓣点缀 */}
+        <circle cx="23" cy="9" r="1.8" fill="rgba(255,255,255,0.6)" />
+      </svg>
     </div>
   )
 }
