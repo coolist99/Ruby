@@ -19,15 +19,17 @@ export default function Students() {
   const db = useDB()
   const [q, setQ] = useState('')
   const [classFilter, setClassFilter] = useState<string>('all')
+  const [typeFilter, setTypeFilter] = useState<'all' | 'private' | 'group'>('all')
   const [adding, setAdding] = useState(false)
 
   const list = useMemo(() => {
     return activeStudents(db)
+      .filter((s) => (typeFilter === 'all' ? true : classOf(db, s)?.type === typeFilter))
       .filter((s) => (classFilter === 'all' ? true : s.classId === classFilter))
       .filter((s) => s.name.toLowerCase().includes(q.toLowerCase()))
       .map((s) => ({ s, c: remainingCredits(db, s.id) }))
       .sort((a, b) => a.s.name.localeCompare(b.s.name, 'zh'))
-  }, [db, q, classFilter])
+  }, [db, q, classFilter, typeFilter])
 
   return (
     <div>
@@ -46,21 +48,36 @@ export default function Students() {
         }
       />
 
-      {/* 搜索 + 班级筛选 */}
-      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="relative flex-1">
-          <Search
-            size={16}
-            className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted"
-          />
-          <TextInput
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="搜索学生姓名…"
-            className="pl-10"
-          />
+      {/* 搜索 */}
+      <div className="relative mb-5">
+        <Search
+          size={16}
+          className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-muted"
+        />
+        <TextInput
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="搜索学生姓名…"
+          className="pl-10"
+        />
+      </div>
+
+      {/* 类型 + 班级筛选 */}
+      <div className="mb-5 flex flex-col gap-2.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-semibold text-muted">类型</span>
+          <Chip active={typeFilter === 'all'} onClick={() => setTypeFilter('all')}>
+            全部
+          </Chip>
+          <Chip active={typeFilter === 'group'} color="#5b8def" onClick={() => setTypeFilter('group')}>
+            班课
+          </Chip>
+          <Chip active={typeFilter === 'private'} color="#ef7aa0" onClick={() => setTypeFilter('private')}>
+            私教
+          </Chip>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-semibold text-muted">班级</span>
           <Chip active={classFilter === 'all'} onClick={() => setClassFilter('all')}>
             全部
           </Chip>
@@ -89,6 +106,8 @@ export default function Students() {
             {list.map(({ s, c }) => {
               const cls = classOf(db, s)
               const wd = s.weekday ? WEEKDAYS[s.weekday - 1] : null
+              const isPrivate = cls?.type === 'private'
+              const typeColor = isPrivate ? '#ef7aa0' : '#5b8def'
               return (
                 <Link
                   key={s.id}
@@ -104,6 +123,12 @@ export default function Students() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <span className="font-semibold text-ink">{s.name}</span>
+                      <span
+                        className="rounded-full px-2 py-0.5 text-[10px] font-bold"
+                        style={{ backgroundColor: `${typeColor}1f`, color: typeColor }}
+                      >
+                        {isPrivate ? '私教' : '班课'}
+                      </span>
                       {wd && (
                         <span
                           className="rounded-full px-2 py-0.5 text-[10px] font-bold"
