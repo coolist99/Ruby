@@ -210,6 +210,32 @@ export const actions = {
     commit({ ...state, students: state.students.map((s) => (s.id === id ? merged : s)) })
     void safeRemote(() => supabase!.from('students').update(studentCols(merged)).eq('id', id))
   },
+  // 班级成员管理：把 memberIds 这些学生归入 classId；本班原有但不在 memberIds 中的学生脱离（classId 清空 → 未分班）。
+  // 一次 commit 完成转入/转出，避免逐个 updateStudent 触发多次渲染与多次云端写入。
+  applyClassMembership(classId: string, memberIds: string[]) {
+    const set = new Set(memberIds)
+    const affected: { id: string; classId: string }[] = []
+    const students = state.students.map((s) => {
+      if (set.has(s.id)) {
+        if (s.classId !== classId) {
+          affected.push({ id: s.id, classId })
+          return { ...s, classId }
+        }
+        return s
+      }
+      if (s.classId === classId) {
+        affected.push({ id: s.id, classId: '' })
+        return { ...s, classId: '' }
+      }
+      return s
+    })
+    commit({ ...state, students })
+    void safeRemote(() =>
+      Promise.all(
+        affected.map((a) => supabase!.from('students').update({ class_id: a.classId }).eq('id', a.id)),
+      ),
+    )
+  },
   removeStudent(id: string) {
     commit({
       ...state,

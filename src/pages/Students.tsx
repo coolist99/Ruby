@@ -139,7 +139,13 @@ export default function Students() {
                       )}
                     </div>
                     <div className="mt-0.5 truncate text-xs text-muted">
-                      {cls?.name} · {s.level}
+                      {cls ? (
+                        `${cls.name} · ${s.level}`
+                      ) : (
+                        <>
+                          <span className="font-semibold text-neg">未分班</span> · {s.level}
+                        </>
+                      )}
                     </div>
                   </div>
                   {s.notes && <span className="hidden text-xs text-muted sm:block">{s.notes}</span>}

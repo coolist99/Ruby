@@ -110,6 +110,7 @@ export function StudentFormModal({
         </div>
         <Field label="班级 / 课程">
           <Select value={classId} onChange={(e) => setClassId(e.target.value)}>
+            <option value="">暂无班级（待分班）</option>
             {db.classes.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}（{c.type === 'private' ? '私教' : '班课'}）
