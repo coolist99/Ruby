@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   ArrowLeft,
   BookOpen,
@@ -9,6 +9,8 @@ import {
   Download,
   GraduationCap,
   Layers,
+  Pencil,
+  Trash2,
 } from 'lucide-react'
 import { useDB } from '../lib/db'
 import {
@@ -24,16 +26,21 @@ import {
 } from '../lib/selectors'
 import { fmtDate, todayISO } from '../lib/format'
 import { Badge, Button, Card, EmptyState, Logo, cn } from '../components/common'
+import { StudentFormModal } from '../components/StudentForm'
+import { DeleteStudentModal } from '../components/DeleteStudentModal'
 import { RechargeModal, LevelUpModal, CheckInInline } from './reportModals'
 
 export default function StudentReport() {
   const { id = '' } = useParams()
+  const navigate = useNavigate()
   const db = useDB()
   const student = db.students.find((s) => s.id === id)
 
   const [rechargeOpen, setRechargeOpen] = useState(false)
   const [levelOpen, setLevelOpen] = useState(false)
   const [checkInOpen, setCheckInOpen] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
 
   if (!student) {
     return (
@@ -121,7 +128,9 @@ export default function StudentReport() {
           <Button variant="grad" onClick={() => setCheckInOpen(true)}><CalendarCheck size={16} /> 打卡</Button>
           <Button variant="soft" onClick={() => setRechargeOpen(true)} style={{ color: 'var(--color-mint)' }}><Coins size={16} /> 充值</Button>
           <Button variant="soft" onClick={() => setLevelOpen(true)} style={{ color: 'var(--color-zero)' }}><Crown size={16} /> 升级</Button>
-          <Button variant="ghost" className="ml-auto" onClick={() => window.print()}><Download size={16} /> 导出 PDF</Button>
+          <Button variant="soft" onClick={() => setEditOpen(true)}><Pencil size={16} /> 编辑资料</Button>
+          <Button variant="danger" className="ml-auto" onClick={() => setDeleteOpen(true)}><Trash2 size={16} /> 删除</Button>
+          <Button variant="ghost" onClick={() => window.print()}><Download size={16} /> 导出 PDF</Button>
         </div>
       </Card>
 
@@ -170,6 +179,13 @@ export default function StudentReport() {
       <RechargeModal open={rechargeOpen} onClose={() => setRechargeOpen(false)} studentId={student.id} />
       <LevelUpModal open={levelOpen} onClose={() => setLevelOpen(false)} studentId={student.id} cur={student.level} />
       <CheckInInline open={checkInOpen} onClose={() => setCheckInOpen(false)} studentId={student.id} />
+      <StudentFormModal open={editOpen} initial={student} onClose={() => setEditOpen(false)} />
+      <DeleteStudentModal
+        open={deleteOpen}
+        student={student}
+        onClose={() => setDeleteOpen(false)}
+        onDeleted={() => navigate('/students')}
+      />
     </div>
   )
 }

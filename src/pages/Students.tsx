@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Search, UserPlus, Users } from 'lucide-react'
+import { Pencil, Search, Trash2, UserPlus, Users } from 'lucide-react'
 import { useDB } from '../lib/db'
 import { activeStudents, classOf, remainingCredits } from '../lib/selectors'
-import { WEEKDAYS } from '../lib/types'
+import { WEEKDAYS, type Student } from '../lib/types'
 import {
   Button,
   Card,
@@ -14,6 +14,7 @@ import {
   cn,
 } from '../components/common'
 import { StudentFormModal } from '../components/StudentForm'
+import { DeleteStudentModal } from '../components/DeleteStudentModal'
 
 export default function Students() {
   const db = useDB()
@@ -21,6 +22,8 @@ export default function Students() {
   const [classFilter, setClassFilter] = useState<string>('all')
   const [typeFilter, setTypeFilter] = useState<'all' | 'private' | 'group'>('all')
   const [adding, setAdding] = useState(false)
+  const [editing, setEditing] = useState<Student | null>(null)
+  const [deleting, setDeleting] = useState<Student | null>(null)
 
   const list = useMemo(() => {
     return activeStudents(db)
@@ -153,6 +156,30 @@ export default function Students() {
                     <span className="text-xs text-muted">剩余</span>
                     <CreditPill n={c} />
                   </div>
+                  <div className="flex shrink-0 items-center gap-1 pl-1 sm:opacity-0 sm:transition sm:group-hover:opacity-100">
+                    <RowAction
+                      title="编辑资料"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        setEditing(s)
+                      }}
+                      className="hover:bg-brand-100 hover:text-brand-600"
+                    >
+                      <Pencil size={14} />
+                    </RowAction>
+                    <RowAction
+                      title="删除学生"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        setDeleting(s)
+                      }}
+                      className="hover:bg-red-50 hover:text-neg"
+                    >
+                      <Trash2 size={14} />
+                    </RowAction>
+                  </div>
                 </Link>
               )
             })}
@@ -161,7 +188,41 @@ export default function Students() {
       )}
 
       <StudentFormModal open={adding} onClose={() => setAdding(false)} />
+      <StudentFormModal open={!!editing} initial={editing ?? undefined} onClose={() => setEditing(null)} />
+      <DeleteStudentModal
+        open={!!deleting}
+        student={deleting}
+        onClose={() => setDeleting(null)}
+      />
     </div>
+  )
+}
+
+// 行内小图标按钮（位于 Link 内，点击时阻止跳转）
+function RowAction({
+  children,
+  title,
+  onClick,
+  className,
+}: {
+  children: React.ReactNode
+  title: string
+  onClick: (e: React.MouseEvent) => void
+  className?: string
+}) {
+  return (
+    <button
+      type="button"
+      title={title}
+      aria-label={title}
+      onClick={onClick}
+      className={cn(
+        'grid h-8 w-8 place-items-center rounded-xl text-muted transition active:scale-95',
+        className,
+      )}
+    >
+      {children}
+    </button>
   )
 }
 
