@@ -149,6 +149,30 @@ export function Badge({
   )
 }
 
+// ───────── 班型徽标（私教=一对一 / semi=一对二 / group=班课）─────────
+export const CLASS_TYPE_META: Record<string, { label: string; color: string }> = {
+  private: { label: '一对一', color: '#ef7aa0' },
+  semi: { label: '一对二', color: '#c08bef' },
+  group: { label: '班课', color: '#5b8def' },
+}
+export function ClassTypeBadge({ type, className }: { type?: string; className?: string }) {
+  const m = CLASS_TYPE_META[type ?? 'group'] ?? CLASS_TYPE_META.group
+  return (
+    <Badge color={m.color} className={className}>
+      {m.label}
+    </Badge>
+  )
+}
+
+// ───────── 赠课标签（上课记录列表通用，小号）─────────
+export function GiftBadge({ className }: { className?: string }) {
+  return (
+    <Badge color="var(--color-mint)" className={cn('px-1.5 py-0 text-[10px]', className)}>
+      赠课
+    </Badge>
+  )
+}
+
 // ───────── 课时数字（正蓝 / 零橙 / 负红）─────────
 export function CreditPill({ n, className }: { n: number; className?: string }) {
   const tone = n > 0 ? 'pos' : n < 0 ? 'neg' : 'zero'

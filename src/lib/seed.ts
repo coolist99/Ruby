@@ -3,6 +3,7 @@
 import type {
   Attendance,
   ClassRoom,
+  ClassType,
   DB,
   Student,
   Transaction,
@@ -34,7 +35,7 @@ export function buildSeed(): DB {
   }
 
   // 班级定义
-  type CDef = { id: string; name: string; type: 'private' | 'group'; color: string; book: string }
+  type CDef = { id: string; name: string; type: ClassType; color: string; book: string }
   const cdefs: CDef[] = [
     { id: 'c_fn', name: 'Fancy Nancy', type: 'group', color: '#b89bff', book: 'Fancy Nancy' },
     { id: 'c_wk', name: '外刊', type: 'group', color: '#5b8def', book: '英语外刊精读' },
@@ -46,6 +47,7 @@ export function buildSeed(): DB {
     { id: 'c_dm', name: 'Dragon Masters#1', type: 'group', color: '#ef6c8a', book: 'Dragon Masters #1' },
     { id: 'c_p_emma', name: '私教 · Emma', type: 'private', color: '#9b6bef', book: 'Harry Potter' },
     { id: 'c_p_liam', name: '私教 · Liam', type: 'private', color: '#ef7aa0', book: 'Magic Tree House' },
+    { id: 'c_s_olivia', name: '一对二 · Olivia&Sophia', type: 'semi', color: '#5bbf7a', book: 'Charlotte\'s Web' },
   ]
   for (const c of cdefs) {
     classes.push({ id: c.id, name: c.name, type: c.type, color: c.color, book: c.book, createdAt: '2025-09-01' })
@@ -63,6 +65,8 @@ export function buildSeed(): DB {
     queueTag?: string
     cycleSize?: number
     alertAt?: number
+    /** demo：第一节记为赠课（不扣课时）*/
+    giftOne?: boolean
   }
   const sdefs: SDef[] = [
     { name: 'Iris', classId: 'c_fn', level: 'L1', weekday: 2, taken: 4, target: -4 },
@@ -84,6 +88,9 @@ export function buildSeed(): DB {
     // 私教
     { name: 'Emma', classId: 'c_p_emma', level: 'Harry Potter', weekday: 6, taken: 2, target: 13, cycleSize: 10, alertAt: 9 },
     { name: 'Liam', classId: 'c_p_liam', level: 'L2', weekday: 6, taken: 9, target: 1, cycleSize: 10, alertAt: 9 }, // 上到第9节 → 提醒
+    // 一对二（扣费与私教一致，各自计周期）；Olivia 第一节是赠课（不扣课时）
+    { name: 'Olivia', classId: 'c_s_olivia', level: 'L2', weekday: 1, taken: 2, target: 3, cycleSize: 10, alertAt: 9, giftOne: true },
+    { name: 'Sophia', classId: 'c_s_olivia', level: 'L2', weekday: 1, taken: 1, target: 4, cycleSize: 10, alertAt: 9 },
     // 待排课
     { name: 'Kay', classId: 'c_re1', taken: 0, target: 0, status: 'queued', queueTag: 'RE1待组班' },
     { name: 'Sarah', classId: 'c_fn', taken: 0, target: 0, status: 'queued', queueTag: '试听' },
@@ -110,8 +117,10 @@ export function buildSeed(): DB {
 
     if ((d.status ?? 'active') !== 'active') continue
 
-    // 充值：使剩余课时落在 target（日期早于所有上课记录，保证都在同一周期内）
-    const recharge = Math.max(0, d.target + d.taken)
+    // 充值：使剩余课时落在 target（日期早于所有上课记录，保证都在同一周期内）；
+    // 赠课的那节不扣课时，充值数相应少 1
+    const giftN = d.giftOne && d.taken > 0 ? 1 : 0
+    const recharge = Math.max(0, d.target + d.taken - giftN)
     if (recharge > 0) {
       txns.push({
         id: uid('t_'),
@@ -125,7 +134,7 @@ export function buildSeed(): DB {
       })
     }
 
-    // 上课记录（出勤 present）
+    // 上课记录（出勤 present；giftOne 时首节为赠课）
     for (let i = 0; i < d.taken; i += 1) {
       const date = lessonDate(i)
       const sid = ensureSession(d.classId, date)
@@ -136,6 +145,7 @@ export function buildSeed(): DB {
         status: 'present',
         topic: d.name === 'Emma' && i === 0 ? 'Chapter 1-Chapter 2' : `Chapter ${i + 1}`,
         note: d.name === 'Emma' && i === 0 ? '复述做得非常棒❤️' : undefined,
+        gift: d.giftOne && i === 0 ? true : undefined,
         createdAt: date,
       })
     }

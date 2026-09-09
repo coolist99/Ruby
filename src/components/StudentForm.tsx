@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { UserPlus } from 'lucide-react'
 import { actions, useDB } from '../lib/db'
-import { WEEKDAYS, type Student, type StudentStatus, type Weekday } from '../lib/types'
+import { isPrivateLike, WEEKDAYS, type Student, type StudentStatus, type Weekday } from '../lib/types'
 import { Badge, Button, Field, Modal, Select, TextInput, useToast } from './common'
 
 export function StudentFormModal({
@@ -31,7 +31,7 @@ export function StudentFormModal({
   const [alertAt, setAlertAt] = useState(9)
 
   const selectedClass = db.classes.find((c) => c.id === classId)
-  const isPrivate = selectedClass?.type === 'private'
+  const isPrivate = isPrivateLike(selectedClass?.type)
 
   useEffect(() => {
     if (!open) return
@@ -113,7 +113,7 @@ export function StudentFormModal({
             <option value="">暂无班级（待分班）</option>
             {db.classes.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.name}（{c.type === 'private' ? '私教' : '班课'}）
+                {c.name}（{c.type === 'private' ? '一对一' : c.type === 'semi' ? '一对二' : '班课'}）
               </option>
             ))}
           </Select>
@@ -147,7 +147,7 @@ export function StudentFormModal({
         {isPrivate && (
           <div className="sm:col-span-2">
             <div className="mb-2 flex items-center gap-2">
-              <Badge>私教 · 收费周期</Badge>
+              <Badge>{selectedClass?.type === 'semi' ? '一对二 · 收费周期' : '私教 · 收费周期'}</Badge>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <Field label="周期长度（节）">

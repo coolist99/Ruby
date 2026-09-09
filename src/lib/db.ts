@@ -125,17 +125,32 @@ function setAttendance(
   sessionId: string,
   studentId: string,
   status: AttendanceStatus,
-  topic?: string,
-  note?: string,
+  opts?: { topic?: string; note?: string; gift?: boolean },
 ) {
   const cur = state.attendances.find((a) => a.sessionId === sessionId && a.studentId === studentId)
   let att: Attendance
   let next: Attendance[]
   if (cur) {
-    att = { ...cur, status, topic: topic ?? cur.topic, note: note ?? cur.note }
+    // 互改覆盖：gift 未显式传时保留原标记，避免普通打卡意外清掉赠课标记
+    att = {
+      ...cur,
+      status,
+      topic: opts?.topic ?? cur.topic,
+      note: opts?.note ?? cur.note,
+      gift: opts?.gift ?? cur.gift,
+    }
     next = state.attendances.map((a) => (a.id === cur.id ? att : a))
   } else {
-    att = { id: uid('a_'), sessionId, studentId, status, topic, note, createdAt: new Date().toISOString() }
+    att = {
+      id: uid('a_'),
+      sessionId,
+      studentId,
+      status,
+      topic: opts?.topic,
+      note: opts?.note,
+      gift: opts?.gift,
+      createdAt: new Date().toISOString(),
+    }
     next = [...state.attendances, att]
   }
   commit({ ...state, attendances: next })
@@ -247,14 +262,14 @@ export const actions = {
   },
 
   // —— 课次 / 出勤 ——
-  /** 单个学生打卡（记一节 present 课）*/
-  recordLesson(studentId: string, date: string, topic: string, note: string) {
+  /** 单个学生打卡（记一节 present 课；gift=true 为赠课，不扣课时）*/
+  recordLesson(studentId: string, date: string, topic: string, note: string, gift = false) {
     const stu = state.students.find((s) => s.id === studentId)
     if (!stu) return
     const sid = ensureSession(stu.classId, date)
-    setAttendance(sid, studentId, 'present', topic || undefined, note || undefined)
+    setAttendance(sid, studentId, 'present', { topic: topic || undefined, note: note || undefined, gift })
   },
-  /** 班课批量点名：该班所有在读学生记 present */
+  /** 班课批量点名：该班所有在读学生记 present（仅 group；semi/私教按学生逐个打卡）*/
   batchCheckIn(classId: string, date: string) {
     const sid = ensureSession(classId, date)
     const targets = state.students.filter((s) => s.classId === classId && s.status === 'active')
@@ -266,16 +281,16 @@ export const actions = {
     const stu = state.students.find((s) => s.id === studentId)
     if (!stu) return
     const sid = ensureSession(stu.classId, date)
-    setAttendance(sid, studentId, 'absent', undefined, note)
+    setAttendance(sid, studentId, 'absent', { note })
   },
-  /** 设置某学生在某课次的出勤状态（含备注，出勤页/日历用）*/
+  /** 设置某学生在某课次的出勤状态（含备注/赠课标记，出勤页/日历用）*/
   setAttendanceFor(
     sessionId: string,
     studentId: string,
     status: AttendanceStatus,
-    opts?: { topic?: string; note?: string },
+    opts?: { topic?: string; note?: string; gift?: boolean },
   ) {
-    setAttendance(sessionId, studentId, status, opts?.topic, opts?.note)
+    setAttendance(sessionId, studentId, status, opts)
   },
   /** 删除某学生在某课次的出勤记录（撤销标记）*/
   removeAttendance(sessionId: string, studentId: string) {
@@ -321,7 +336,7 @@ export const actions = {
   },
 
   // —— 充值 / 升级 ——
-  recharge(studentId: string, date: string, credits: number, amount?: number) {
+  recharge(studentId: string, date: string, credits: number, amount?: number, notes?: string) {
     const txn: Transaction = {
       id: uid('t_'),
       studentId,
@@ -329,11 +344,25 @@ export const actions = {
       date,
       delta: credits,
       amount,
+      notes,
       createdAt: new Date().toISOString(),
     }
     commit({ ...state, txns: [txn, ...state.txns] })
     void safeRemote(() => supabase!.from('transactions').upsert(txnCols(txn), { onConflict: 'id' }))
     return txn
+  },
+  /** 修改一条流水（充值补录纠错：日期/课时/金额/备注）*/
+  updateTxn(id: string, patch: Partial<Transaction>) {
+    const cur = state.txns.find((t) => t.id === id)
+    if (!cur) return
+    const merged = { ...cur, ...patch }
+    commit({ ...state, txns: state.txns.map((t) => (t.id === id ? merged : t)) })
+    void safeRemote(() => supabase!.from('transactions').update(txnCols(merged)).eq('id', id))
+  },
+  /** 删除一条流水（充值记录页/档案用）*/
+  removeTxn(id: string) {
+    commit({ ...state, txns: state.txns.filter((t) => t.id !== id) })
+    void safeRemote(() => supabase!.from('transactions').delete().eq('id', id))
   },
   levelUp(studentId: string, date: string, newLevel: string) {
     const txn: Transaction = {

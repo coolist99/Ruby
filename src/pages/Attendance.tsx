@@ -107,7 +107,7 @@ export default function Attendance() {
                 style={on ? { backgroundColor: c.color } : undefined}
               >
                 {on ? '✓ ' : ''}{c.name}
-                <span className="opacity-70"> · {c.type === 'private' ? '私教' : '班课'}</span>
+                <span className="opacity-70"> · {c.type === 'private' ? '一对一' : c.type === 'semi' ? '一对二' : '班课'}</span>
               </button>
             )
           })}
@@ -164,7 +164,7 @@ export default function Attendance() {
                         <span className="flex items-center gap-2">
                           <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: r.cls?.color }} />
                           <span className="font-semibold text-ink">{r.cls?.name}</span>
-                          <span className="text-xs text-muted">{r.cls?.type === 'private' ? '私教' : '班课'}</span>
+                          <span className="text-xs text-muted">{r.cls?.type === 'private' ? '一对一' : r.cls?.type === 'semi' ? '一对二' : '班课'}</span>
                         </span>
                       </td>
                       <td className="px-3 py-2.5 text-center tabular-nums">{r.sessions}</td>

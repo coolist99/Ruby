@@ -57,6 +57,7 @@ const rowAtt = (r: any): Attendance => ({
   status: r.status,
   topic: r.topic ?? undefined,
   note: r.note ?? undefined,
+  gift: r.gift ?? undefined,
   createdAt: r.created_at,
 })
 const rowTxn = (r: any): Transaction => ({
@@ -137,6 +138,7 @@ export const attCols = (a: Attendance) => ({
   status: a.status,
   topic: a.topic ?? null,
   note: a.note ?? null,
+  gift: a.gift ?? false,
 })
 export const txnCols = (t: Transaction) => ({
   id: t.id,

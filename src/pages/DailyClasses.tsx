@@ -5,7 +5,7 @@ import { useDB } from '../lib/db'
 import { classById, studentsOnWeekday } from '../lib/selectors'
 import { fmtDate, relativeDay, todayISO } from '../lib/format'
 import { WEEKDAYS, type Weekday } from '../lib/types'
-import { Badge, Button, Card, EmptyState, PageHeader, cn } from '../components/common'
+import { Button, Card, ClassTypeBadge, EmptyState, PageHeader, cn } from '../components/common'
 import { StudentFormModal } from '../components/StudentForm'
 import { AttendanceEditor } from '../components/AttendanceEditor'
 
@@ -138,7 +138,7 @@ function ClassGroup({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="truncate font-bold text-ink">{cls?.name ?? '未分班'}</span>
-            {cls && <Badge color={cls.type === 'private' ? '#ef7aa0' : '#5b8def'}>{cls.type === 'private' ? '私教' : '班课'}</Badge>}
+            {cls && <ClassTypeBadge type={cls.type} />}
           </div>
           <div className="mt-0.5 text-xs text-muted">
             {students.length} 名学生

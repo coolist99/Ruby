@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { CalendarCheck, Coins, Crown } from 'lucide-react'
 import { actions } from '../lib/db'
 import { todayISO } from '../lib/format'
-import { Button, Field, Modal, TextInput, useToast } from '../components/common'
+import { Button, Field, Modal, TextInput, cn, useToast } from '../components/common'
 
 export function NumInput({
   value,
@@ -60,14 +60,14 @@ export function RechargeModal({ open, onClose, studentId }: { open: boolean; onC
     >
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="sm:col-span-2">
-          <Field label="充值日期">
+          <Field label="充值日期（可补录历史充值）">
             <TextInput type="date" value={date} onChange={(e) => setDate(e.target.value)} />
           </Field>
         </div>
         <Field label="课时数"><NumInput value={credits} onChange={setCredits} step={1} /></Field>
         <Field label="金额 (Price)"><NumInput value={amount} onChange={setAmount} step={100} prefix="¥" /></Field>
       </div>
-      <p className="mt-3 text-xs text-muted">充值后会开一个新的收费周期（私教的上次充值后重新计数）。</p>
+      <p className="mt-3 text-xs text-muted">可补录历史充值（选择过去的日期）；充值后会开一个新的收费周期（私教/一对二从上次充值后重新计数）。</p>
     </Modal>
   )
 }
@@ -116,11 +116,12 @@ export function CheckInInline({ open, onClose, studentId }: { open: boolean; onC
   const [status, setStatus] = useState<'present' | 'absent'>('present')
   const [topic, setTopic] = useState('')
   const [notes, setNotes] = useState('')
+  const [gift, setGift] = useState(false)
 
   function submit() {
     if (status === 'present') {
-      actions.recordLesson(studentId, date, topic.trim(), notes.trim())
-      toast('已记一节课（到）✅')
+      actions.recordLesson(studentId, date, topic.trim(), notes.trim(), gift)
+      toast(gift ? '已记一节赠课（不扣课时）🎁' : '已记一节课（到）✅')
     } else {
       actions.markAbsent(studentId, date, notes.trim() || undefined)
       toast('已记缺勤（不扣课时）')
@@ -128,6 +129,7 @@ export function CheckInInline({ open, onClose, studentId }: { open: boolean; onC
     setTopic('')
     setNotes('')
     setStatus('present')
+    setGift(false)
     onClose()
   }
 
@@ -157,7 +159,7 @@ export function CheckInInline({ open, onClose, studentId }: { open: boolean; onC
               onClick={() => setStatus('present')}
               className={`flex-1 rounded-2xl border px-3 py-2 text-sm font-bold transition ${status === 'present' ? 'border-transparent bg-mint text-white' : 'border-line bg-white text-ink-soft'}`}
             >
-              到课（扣1课时）
+              到课{gift ? '（赠课不扣）' : '（扣1课时）'}
             </button>
             <button
               onClick={() => setStatus('absent')}
@@ -168,9 +170,33 @@ export function CheckInInline({ open, onClose, studentId }: { open: boolean; onC
           </div>
         </Field>
         {status === 'present' ? (
-          <Field label="内容（Topic）">
-            <TextInput value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="Chapter 1-Chapter 2" />
-          </Field>
+          <>
+            <Field label="内容（Topic）">
+              <TextInput value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="Chapter 1-Chapter 2" />
+            </Field>
+            <div className="flex items-center justify-between rounded-2xl border border-line bg-white/60 px-4 py-3">
+              <div>
+                <div className="text-sm font-bold text-ink">🎁 赠课</div>
+                <div className="text-xs text-muted">本节不消耗课时、不计收费周期</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setGift((g) => !g)}
+                className={cn(
+                  'relative h-7 w-12 rounded-full transition',
+                  gift ? 'bg-mint' : 'bg-black/15',
+                )}
+                aria-pressed={gift}
+              >
+                <span
+                  className={cn(
+                    'absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-all',
+                    gift ? 'left-6' : 'left-1',
+                  )}
+                />
+              </button>
+            </div>
+          </>
         ) : null}
         <Field label={status === 'present' ? '反馈（Notes）' : '缺勤原因'}>
           <TextInput value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={status === 'present' ? '复述做得非常棒❤️' : '如 请假 / 生病'} />

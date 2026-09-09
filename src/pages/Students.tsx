@@ -7,6 +7,7 @@ import { WEEKDAYS, type Student } from '../lib/types'
 import {
   Button,
   Card,
+  CLASS_TYPE_META,
   CreditPill,
   EmptyState,
   PageHeader,
@@ -20,7 +21,7 @@ export default function Students() {
   const db = useDB()
   const [q, setQ] = useState('')
   const [classFilter, setClassFilter] = useState<string>('all')
-  const [typeFilter, setTypeFilter] = useState<'all' | 'private' | 'group'>('all')
+  const [typeFilter, setTypeFilter] = useState<'all' | 'private' | 'semi' | 'group'>('all')
   const [adding, setAdding] = useState(false)
   const [editing, setEditing] = useState<Student | null>(null)
   const [deleting, setDeleting] = useState<Student | null>(null)
@@ -75,8 +76,11 @@ export default function Students() {
           <Chip active={typeFilter === 'group'} color="#5b8def" onClick={() => setTypeFilter('group')}>
             班课
           </Chip>
+          <Chip active={typeFilter === 'semi'} color="#c08bef" onClick={() => setTypeFilter('semi')}>
+            一对二
+          </Chip>
           <Chip active={typeFilter === 'private'} color="#ef7aa0" onClick={() => setTypeFilter('private')}>
-            私教
+            一对一
           </Chip>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -109,8 +113,7 @@ export default function Students() {
             {list.map(({ s, c }) => {
               const cls = classOf(db, s)
               const wd = s.weekday ? WEEKDAYS[s.weekday - 1] : null
-              const isPrivate = cls?.type === 'private'
-              const typeColor = isPrivate ? '#ef7aa0' : '#5b8def'
+              const typeMeta = CLASS_TYPE_META[cls?.type ?? 'group'] ?? CLASS_TYPE_META.group
               return (
                 <Link
                   key={s.id}
@@ -128,9 +131,9 @@ export default function Students() {
                       <span className="font-semibold text-ink">{s.name}</span>
                       <span
                         className="rounded-full px-2 py-0.5 text-[10px] font-bold"
-                        style={{ backgroundColor: `${typeColor}1f`, color: typeColor }}
+                        style={{ backgroundColor: `${typeMeta.color}1f`, color: typeMeta.color }}
                       >
-                        {isPrivate ? '私教' : '班课'}
+                        {typeMeta.label}
                       </span>
                       {wd && (
                         <span

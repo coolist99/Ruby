@@ -43,7 +43,16 @@ export async function exportAttendancePDF(db: DB, classId: string, date: string)
     head: [['#', 'Student', 'Status', 'Note']],
     body: roster.map((s, i) => {
       const a = attFor(s.id)
-      const st = a?.status === 'present' ? 'Present' : a?.status === 'absent' ? 'Absent' : '-'
+      const st =
+        a?.status === 'present'
+          ? a.gift
+            ? 'Present · 赠课'
+            : 'Present'
+          : a?.status === 'absent'
+            ? 'Absent'
+            : a?.status === 'late'
+              ? 'Late'
+              : '-'
       return [String(i + 1), s.name, st, a?.note ?? '']
     }),
     styles: { fontSize: 10, cellPadding: 2.5 },
@@ -51,13 +60,14 @@ export async function exportAttendancePDF(db: DB, classId: string, date: string)
     alternateRowStyles: { fillColor: [248, 245, 251] },
     columnStyles: {
       0: { cellWidth: 12, halign: 'center' },
-      2: { cellWidth: 24, halign: 'center' },
+      2: { cellWidth: 38, halign: 'center' },
     },
     didParseCell: (data) => {
       if (data.section === 'body' && data.column.index === 2) {
         const v = String(data.cell.raw)
-        if (v === 'Present') data.cell.styles.textColor = [91, 191, 122]
+        if (v.startsWith('Present')) data.cell.styles.textColor = [91, 191, 122]
         else if (v === 'Absent') data.cell.styles.textColor = [233, 106, 91]
+        else if (v === 'Late') data.cell.styles.textColor = [241, 161, 58]
       }
     },
   })
@@ -91,6 +101,16 @@ export async function exportClassPeriodPDF(
   const { students, dates, status } = classPeriodGrid(db, classId, startISO, endISO)
   const brand: [number, number, number] = [155, 107, 239]
 
+  // 赠课标记：日期 → 该日期课次 id（矩阵里 ✓ 后跟「赠」）
+  const sessionIdsByDate = new Map<string, string>()
+  db.sessions
+    .filter((s) => s.classId === classId && s.date >= startISO && s.date <= endISO)
+    .forEach((s) => sessionIdsByDate.set(s.date, s.id))
+  const isGiftCell = (studentId: string, d: string) =>
+    db.attendances.some(
+      (a) => a.studentId === studentId && a.sessionId === sessionIdsByDate.get(d) && a.gift,
+    )
+
   let totalPresent = 0
   let totalAbsent = 0
   const rows = students.map((s, i) => {
@@ -100,7 +120,7 @@ export async function exportClassPeriodPDF(
       const st = status[s.id]?.[d]
       if (st === 'present') {
         present += 1
-        return '✓'
+        return isGiftCell(s.id, d) ? '✓赠' : '✓'
       }
       if (st === 'absent') {
         absent += 1
@@ -146,7 +166,7 @@ export async function exportClassPeriodPDF(
       if (data.section === 'body' && data.column.index >= 2 && data.column.index < 2 + dates.length) {
         data.cell.styles.halign = 'center'
         const v = String(data.cell.raw)
-        if (v === '✓') data.cell.styles.textColor = [91, 191, 122]
+        if (v.startsWith('✓')) data.cell.styles.textColor = [91, 191, 122]
         else if (v === '✗') data.cell.styles.textColor = [233, 106, 91]
       }
       // 汇总列
@@ -187,6 +207,14 @@ export async function exportClassesPeriodPDF(
   const data = classIds.map((id) => {
     const cls = classById(db, id)
     const { students, dates, status } = classPeriodGrid(db, id, startISO, endISO)
+    const sessionIdsByDate = new Map<string, string>()
+    db.sessions
+      .filter((s) => s.classId === id && s.date >= startISO && s.date <= endISO)
+      .forEach((s) => sessionIdsByDate.set(s.date, s.id))
+    const isGiftCell = (studentId: string, d: string) =>
+      db.attendances.some(
+        (a) => a.studentId === studentId && a.sessionId === sessionIdsByDate.get(d) && a.gift,
+      )
     let present = 0
     let absent = 0
     students.forEach((s) =>
@@ -196,7 +224,7 @@ export async function exportClassesPeriodPDF(
         if (st === 'absent') absent += 1
       }),
     )
-    return { cls, students, dates, status, present, absent }
+    return { cls, students, dates, status, present, absent, isGiftCell }
   })
 
   const totalSessions = data.reduce((a, x) => a + x.dates.length, 0)
@@ -269,7 +297,7 @@ export async function exportClassesPeriodPDF(
               const st = x.status[s.id]?.[d]
               if (st === 'present') {
                 p += 1
-                return '✓'
+                return x.isGiftCell(s.id, d) ? '✓赠' : '✓'
               }
               if (st === 'absent') {
                 a += 1
@@ -291,7 +319,7 @@ export async function exportClassesPeriodPDF(
         if (ctx.section === 'body' && ctx.column.index >= 2 && ctx.column.index < 2 + x.dates.length) {
           ctx.cell.styles.halign = 'center'
           const v = String(ctx.cell.raw)
-          if (v === '✓') ctx.cell.styles.textColor = [91, 191, 122]
+          if (v.startsWith('✓')) ctx.cell.styles.textColor = [91, 191, 122]
           else if (v === '✗') ctx.cell.styles.textColor = [233, 106, 91]
         }
       },

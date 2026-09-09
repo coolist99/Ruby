@@ -1,6 +1,8 @@
 -- ============================================================
 --  Ruby's Room · Supabase 建表脚本 v2（班型 + 周期 + 课次 + 出勤）
 --  使用方法：Supabase Dashboard → SQL Editor → 粘贴 → Run（可重复执行）
+--  ⚠️ 会 drop+recreate 清空数据重灌；已有数据请改用
+--     migrate-20260909.sql（增量、不丢数据）
 -- ============================================================
 
 drop table if exists public.attendances cascade;
@@ -15,7 +17,7 @@ create table public.classes (
   name       text not null,
   book       text,
   color      text not null default '#9b6bef',
-  type       text not null default 'group' check (type in ('private','group')),  -- 私教 / 班课
+  type       text not null default 'group' check (type in ('private','semi','group')),  -- 私教 / 一对二 / 班课
   created_at timestamptz not null default now()
 );
 
@@ -53,6 +55,7 @@ create table public.attendances (
   status     text not null default 'present' check (status in ('present','absent','late')),
   topic      text,
   note       text,
+  gift       boolean not null default false,   -- 赠课：不消耗课时、不计周期
   created_at timestamptz not null default now(),
   unique (session_id, student_id)
 );

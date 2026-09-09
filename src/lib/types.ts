@@ -1,6 +1,6 @@
 // Ruby's Class — 数据模型 v2
-// 班型(私教/班课) + 收费周期 + 课次 + 出勤。
-// 上课次数 / 课时 = 由 attendances(present) 派生；transactions 只记充值与升级。
+// 班型(私教/一对二/班课) + 收费周期 + 课次 + 出勤。
+// 上课次数 / 课时 = 由 attendances(present，赠课除外) 派生；transactions 只记充值与升级。
 
 export type Weekday = 1 | 2 | 3 | 4 | 5 | 6 | 7 // 1=周一 … 7=周日
 
@@ -21,7 +21,12 @@ export const WEEKDAYS: {
   { value: 7, short: 'Sun', en: 'Sunday', cn: '周日', color: '#ef5b8a', emoji: '🌸' },
 ]
 
-export type ClassType = 'private' | 'group'
+export type ClassType = 'private' | 'semi' | 'group'
+
+/** 按私教方式扣费/计周期的班型（私教一对一 + 一对二）*/
+export function isPrivateLike(type: ClassType | undefined): boolean {
+  return type === 'private' || type === 'semi'
+}
 
 // 班级 / 课程
 export interface ClassRoom {
@@ -29,7 +34,7 @@ export interface ClassRoom {
   name: string
   book?: string
   color: string
-  type: ClassType // 私教 / 班课
+  type: ClassType // 私教 / 一对二 / 班课
   createdAt: string
 }
 
@@ -45,7 +50,7 @@ export interface Student {
   status: StudentStatus
   queueTag?: string
   notes?: string
-  cycleSize: number // 私教收费周期长度（默认 10）
+  cycleSize: number // 私教/一对二收费周期长度（默认 10）
   alertAt: number // 周期内第几节提醒（默认 9）
   createdAt: string
 }
@@ -72,6 +77,7 @@ export interface Attendance {
   status: AttendanceStatus
   topic?: string // 本节课内容（如 Chapter 1-2）
   note?: string
+  gift?: boolean // 赠课：不消耗课时、不计周期
   createdAt: string
 }
 

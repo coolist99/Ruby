@@ -57,6 +57,11 @@ export function ClassFormModal({
       })
       return
     }
+    // 一对二上限 2 人（超过阻止）
+    if (type === 'semi' && memberIds.size >= 2) {
+      toast('一对二最多选 2 名学生，先取消一位再换', 'info')
+      return
+    }
     // 加入：若已在别的班，先确认转班（防选错）
     const cur = classOf(db, s)
     const inOther = !!cur && (!initial || cur.id !== initial.id)
@@ -76,15 +81,24 @@ export function ClassFormModal({
 
   function submit() {
     const ids = [...memberIds]
-    // 班名：班课必填；私教可留空（用首位成员自动命名）
+    if (type === 'semi' && ids.length > 2) {
+      toast('一对二最多 2 名学生', 'info')
+      return
+    }
+    // 班名：班课必填；私教/一对二可留空（用成员自动命名）
     let className = name.trim()
-    if (type === 'private' && !className) {
+    if ((type === 'private' || type === 'semi') && !className) {
       if (ids.length === 0) {
         toast('请填写班名，或至少选择一名学生', 'info')
         return
       }
-      const first = db.students.find((x) => x.id === ids[0])
-      className = `私教·${first?.name ?? '未命名'}`
+      const names = ids.map((mid) => db.students.find((x) => x.id === mid)?.name ?? '')
+      if (type === 'private') {
+        className = `私教·${names[0] || '未命名'}`
+      } else {
+        // 一对二：两名学生名字拼接
+        className = names.filter(Boolean).length === 2 ? `一对二·${names[0]}&${names[1]}` : `一对二·${names.filter(Boolean)[0] ?? '未命名'}`
+      }
     }
     if (!className) {
       toast('请填写班级名称', 'info')
@@ -98,7 +112,7 @@ export function ClassFormModal({
     } else {
       const cls = actions.addClass(payload)
       if (ids.length) actions.applyClassMembership(cls.id, ids)
-      toast(type === 'private' ? '已创建私教班级 ✨' : '已创建班课 ✨')
+      toast(type === 'private' ? '已创建私教班级 ✨' : type === 'semi' ? '已创建一对二班级 ✨' : '已创建班课 ✨')
     }
     onClose()
   }
@@ -128,12 +142,13 @@ export function ClassFormModal({
               autoFocus
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder={type === 'private' ? '私教可留空（按学生自动命名）' : '如 Fancy Nancy'}
+              placeholder={type === 'group' ? '如 Fancy Nancy' : type === 'semi' ? '一对二可留空（按学生自动命名）' : '私教可留空（按学生自动命名）'}
             />
           </Field>
           <Field label="班型">
             <Select value={type} onChange={(e) => setType(e.target.value as ClassType)}>
               <option value="group">班课（多名学生）</option>
+              <option value="semi">一对二（两名学生）</option>
               <option value="private">私教（一对一）</option>
             </Select>
           </Field>
@@ -210,7 +225,7 @@ export function ClassFormModal({
         </Field>
 
         <p className="text-xs text-muted">
-          勾选学生即归入本班；已在别班的学生会提示转班，取消勾选则变为「未分班」。私教通常选 1 名、班课可选多名，之后随时回来编辑增减。
+          勾选学生即归入本班；已在别班的学生会提示转班，取消勾选则变为「未分班」。私教选 1 名、一对二最多 2 名、班课可选多名，之后随时回来编辑增减。一对二的扣费与私教完全一致（按学生各自计周期）。
         </p>
       </div>
     </Modal>

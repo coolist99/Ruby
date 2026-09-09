@@ -4,7 +4,7 @@ import { FolderPlus, Pencil, Trash2, Users } from 'lucide-react'
 import { actions, useDB } from '../lib/db'
 import { activeStudents } from '../lib/selectors'
 import { WEEKDAYS } from '../lib/types'
-import { Badge, Button, Card, EmptyState, PageHeader, useToast } from '../components/common'
+import { Button, Card, ClassTypeBadge, EmptyState, PageHeader, useToast } from '../components/common'
 import { ClassFormModal } from '../components/ClassForm'
 
 export default function Classes() {
@@ -49,9 +49,7 @@ export default function Classes() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <span className="truncate font-bold text-ink">{c.name}</span>
-                      <Badge color={c.type === 'private' ? '#ef7aa0' : '#5b8def'}>
-                        {c.type === 'private' ? '私教' : '班课'}
-                      </Badge>
+                      <ClassTypeBadge type={c.type} />
                     </div>
                     <div className="mt-0.5 truncate text-xs text-muted">
                       {c.book || '未设教材'}

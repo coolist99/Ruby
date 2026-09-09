@@ -6,6 +6,7 @@ import {
   CalendarRange,
   ClipboardCheck,
   Clock,
+  Coins,
   Folders,
   LayoutDashboard,
   type LucideIcon,
@@ -33,6 +34,7 @@ const NAV: NavItem[] = [
   { to: '/calendar', label: '课程日历', icon: CalendarRange },
   { to: '/queued', label: '待排课', icon: Clock, count: 'queued' },
   { to: '/attendance', label: '考勤统计', icon: ClipboardCheck },
+  { to: '/recharges', label: '充值记录', icon: Coins },
 ]
 
 export function Sidebar({ onNavigate }: { onNavigate?: () => void }) {

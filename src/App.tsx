@@ -13,6 +13,7 @@ import DailyClasses from './pages/DailyClasses'
 import Queued from './pages/Queued'
 import Attendance from './pages/Attendance'
 import StudentReport from './pages/StudentReport'
+import Recharges from './pages/Recharges'
 
 function Layout() {
   const [drawer, setDrawer] = useState(false)
@@ -92,6 +93,7 @@ export default function App() {
           <Route path="daily" element={<DailyClasses />} />
           <Route path="queued" element={<Queued />} />
           <Route path="attendance" element={<Attendance />} />
+          <Route path="recharges" element={<Recharges />} />
           <Route path="student/:id" element={<StudentReport />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
