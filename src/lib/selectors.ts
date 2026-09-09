@@ -1,5 +1,5 @@
 // 派生查询 v2：课时由出勤派生（赠课除外）；私教/一对二收费周期；考勤基于课次。
-import { isPrivateLike, type Attendance, type AttendanceStatus, type ClassRoom, type DB, type Session, type Student } from './types'
+import { isPrivateLike, type Attendance, type AttendanceStatus, type ClassRoom, type ClassType, type DB, type Session, type Student } from './types'
 
 export function classById(db: DB, id: string): ClassRoom | undefined {
   return db.classes.find((c) => c.id === id)
@@ -134,6 +134,53 @@ export function rechargeLedger(db: DB, studentId: string): LedgerEntry[] {
 }
 function sessionDate(db: DB, sessionId: string): string {
   return db.sessions.find((s) => s.id === sessionId)?.date ?? '0000-00-00'
+}
+
+// ── 月度收入审计（收付实现制：充值当天即计收入，与课时消耗/赠课/退课无关）──
+export type RevenueTypeKey = ClassType | 'none'
+
+export interface MonthlyRevenue {
+  /** 收入合计：只累计 amount != null 的充值（未填金额不计入 → 可能偏低）*/
+  total: number
+  /** 当月充值笔数（含未填金额）*/
+  count: number
+  /** 新增课时 Σ delta */
+  credits: number
+  /** 涉及学生数（按 studentId 去重）*/
+  students: number
+  /** 班型收入分布；'none' = 学生无班级/班级已删。当月有该型充值才出现（金额可为 0）*/
+  byType: Partial<Record<RevenueTypeKey, number>>
+  /** 未填金额笔数 */
+  missingAmount: number
+  /** 未填金额的流水 id（审计提示定位/高亮用）*/
+  missingIds: string[]
+}
+
+/** ym = 'YYYY-MM'。恒等式：Σ byType === total（未填金额按 0 占位）。*/
+export function monthlyRevenue(db: DB, ym: string): MonthlyRevenue {
+  const typeKeyOf = (studentId: string): RevenueTypeKey => {
+    const stu = db.students.find((s) => s.id === studentId)
+    return (stu ? classOf(db, stu)?.type : undefined) ?? 'none'
+  }
+  const txns = db.txns.filter((t) => t.type === 'recharge' && t.date.slice(0, 7) === ym)
+  const byType: Partial<Record<RevenueTypeKey, number>> = {}
+  const stuIds = new Set<string>()
+  const missingIds: string[] = []
+  let total = 0
+  let credits = 0
+  for (const t of txns) {
+    stuIds.add(t.studentId)
+    credits += t.delta
+    const key = typeKeyOf(t.studentId)
+    if (t.amount == null) {
+      missingIds.push(t.id)
+      byType[key] = byType[key] ?? 0 // 该型有充值但金额未知，占位 ¥0
+    } else {
+      total += t.amount
+      byType[key] = (byType[key] ?? 0) + t.amount
+    }
+  }
+  return { total, count: txns.length, credits, students: stuIds.size, byType, missingAmount: missingIds.length, missingIds }
 }
 
 export function studentsOnWeekday(db: DB, weekday: number): Student[] {

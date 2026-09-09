@@ -1,28 +1,48 @@
-// 充值记录页：全部 type === 'recharge' 流水 + FIFO 消耗台账 + 新增/编辑/删除
+// 充值记录页：全部 type === 'recharge' 流水 + FIFO 消耗台账 + 新增/编辑/删除 + 月度收入审计
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Coins, Pencil, Plus, Trash2 } from 'lucide-react'
+import {
+  AlertTriangle,
+  ChevronLeft,
+  ChevronRight,
+  Coins,
+  FileDown,
+  Pencil,
+  Plus,
+  Receipt,
+  Trash2,
+  Users,
+  Wallet,
+} from 'lucide-react'
 import { actions, useDB } from '../lib/db'
-import { classOf, rechargeLedger } from '../lib/selectors'
-import { fmtDate, todayISO } from '../lib/format'
+import { classOf, monthlyRevenue, rechargeLedger } from '../lib/selectors'
+import { fmtDate, fmtYM, shiftYM, todayISO } from '../lib/format'
+import { exportMonthlyBillPDF } from '../lib/pdf'
 import type { Transaction } from '../lib/types'
 import {
   Badge,
   Button,
   Card,
+  CLASS_TYPE_META,
   EmptyState,
   Field,
   Modal,
   PageHeader,
   Select,
   TextInput,
+  cn,
   useToast,
 } from '../components/common'
 
 export default function Recharges() {
   const db = useDB()
+  const toast = useToast()
+  const currentYM = todayISO().slice(0, 7)
   const [studentFilter, setStudentFilter] = useState('all')
-  const [monthFilter, setMonthFilter] = useState('all')
+  // 月度审计选中月：与列表月份筛选用同一 state（联动），学生筛选独立
+  const [month, setMonth] = useState(currentYM)
+  // 「未填金额」审计高亮的流水 id；换月/换学生后自动清除
+  const [highlight, setHighlight] = useState<Set<string> | null>(null)
   const [adding, setAdding] = useState(false)
   const [editing, setEditing] = useState<Transaction | null>(null)
   const [deleting, setDeleting] = useState<Transaction | null>(null)
@@ -41,7 +61,7 @@ export default function Recharges() {
     return db.txns
       .filter((t) => t.type === 'recharge')
       .filter((t) => (studentFilter === 'all' ? true : t.studentId === studentFilter))
-      .filter((t) => (monthFilter === 'all' ? true : t.date.slice(0, 7) === monthFilter))
+      .filter((t) => t.date.slice(0, 7) === month)
       .map((t) => {
         const stu = db.students.find((s) => s.id === t.studentId)
         const cls = stu ? classOf(db, stu) : undefined
@@ -55,13 +75,15 @@ export default function Recharges() {
         }
       })
       .sort((a, b) => (a.t.date < b.t.date ? 1 : a.t.date > b.t.date ? -1 : 0))
-  }, [db, studentFilter, monthFilter, ledgerByStudent])
+  }, [db, studentFilter, month, ledgerByStudent])
 
-  // 月份选项：从已有充值日期里聚合，倒序
+  // 月份选项：从已有充值日期里聚合（补上当前月与选中月），倒序
   const months = useMemo(() => {
     const set = new Set(db.txns.filter((t) => t.type === 'recharge').map((t) => t.date.slice(0, 7)))
+    set.add(currentYM)
+    set.add(month)
     return [...set].sort().reverse()
-  }, [db])
+  }, [db, month, currentYM])
 
   const totalCredits = rows.reduce((s, r) => s + r.t.delta, 0)
   const totalAmount = rows.reduce((s, r) => s + (r.t.amount ?? 0), 0)
@@ -71,6 +93,60 @@ export default function Recharges() {
     () => [...db.students].sort((a, b) => a.name.localeCompare(b.name, 'zh')),
     [db.students],
   )
+
+  // ── 月度收入审计（收付实现制）──
+  const rev = useMemo(() => monthlyRevenue(db, month), [db, month])
+  const prevRev = useMemo(() => monthlyRevenue(db, shiftYM(month, -1)), [db, month])
+
+  // 环比：上月 0 且本月 0 不显示；上月 0 本月>0 → 新增
+  const mom = useMemo(() => {
+    if (prevRev.total === 0 && rev.total === 0) return null
+    if (prevRev.total === 0) return { kind: 'new' as const }
+    const pct = Math.round(((rev.total - prevRev.total) / prevRev.total) * 100)
+    if (pct === 0) return { kind: 'flat' as const }
+    return pct > 0
+      ? { kind: 'up' as const, text: `↑${pct}%` }
+      : { kind: 'down' as const, text: `↓${Math.abs(pct)}%` }
+  }, [rev.total, prevRev.total])
+
+  // 班型分布胶囊：当月有充值的类型才显示（金额 0 = 该型充值都未填金额）
+  const typePills = useMemo(
+    () =>
+      (
+        [
+          { key: 'private', label: '私教', color: CLASS_TYPE_META.private.color },
+          { key: 'semi', label: '一对二', color: CLASS_TYPE_META.semi.color },
+          { key: 'group', label: '班课', color: CLASS_TYPE_META.group.color },
+          { key: 'none', label: '未分班', color: '#9b95ad' },
+        ] as const
+      ).filter((p) => rev.byType[p.key] != null),
+    [rev],
+  )
+
+  /** 换月：同步列表筛选并清掉未填金额高亮 */
+  function pickMonth(m: string) {
+    setMonth(m)
+    setHighlight(null)
+  }
+
+  /** 点警示条：清学生筛选、月份保持当前月，高亮/取消高亮未填金额的行 */
+  function toggleMissing() {
+    if (highlight) {
+      setHighlight(null)
+      return
+    }
+    setStudentFilter('all')
+    setHighlight(new Set(rev.missingIds))
+  }
+
+  async function exportBill() {
+    try {
+      await exportMonthlyBillPDF(db, month)
+      toast(`已导出 ${fmtYM(month)}收入账单 📄`)
+    } catch {
+      toast('导出失败，请重试', 'info')
+    }
+  }
 
   return (
     <div>
@@ -89,11 +165,136 @@ export default function Recharges() {
         }
       />
 
+      {/* ── 月度收入审计：月份切换 + 导出 ── */}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            title="上一月"
+            onClick={() => pickMonth(shiftYM(month, -1))}
+            className="grid h-9 w-9 place-items-center rounded-xl border border-line bg-white text-muted transition hover:border-brand-200 hover:text-brand-600"
+          >
+            <ChevronLeft size={16} />
+          </button>
+          <div className="min-w-[7.25rem] text-center text-sm font-bold text-ink">{fmtYM(month)}</div>
+          <button
+            type="button"
+            title="下一月"
+            onClick={() => pickMonth(shiftYM(month, 1))}
+            className="grid h-9 w-9 place-items-center rounded-xl border border-line bg-white text-muted transition hover:border-brand-200 hover:text-brand-600"
+          >
+            <ChevronRight size={16} />
+          </button>
+          <Button
+            variant="ghost"
+            className="px-3 py-1.5 text-xs"
+            disabled={month === currentYM}
+            onClick={() => pickMonth(currentYM)}
+          >
+            本月
+          </Button>
+        </div>
+        <Button variant="soft" onClick={exportBill}>
+          <FileDown size={15} /> 导出月账单
+        </Button>
+      </div>
+
+      {/* 汇总卡：收入 / 笔数 / 新增课时 / 学生数 */}
+      <div className="mb-4 grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div className="card p-5">
+          <div className="flex items-center gap-2 text-xs font-semibold text-muted">
+            <span className="grid h-8 w-8 place-items-center rounded-xl bg-mint/15 text-mint">
+              <Wallet size={16} />
+            </span>
+            当月收入
+          </div>
+          <div className="mt-2 truncate text-2xl font-bold tabular-nums text-mint">
+            ¥{rev.total.toLocaleString('zh-CN')}
+          </div>
+          {mom && (
+            <div
+              className={cn(
+                'mt-1 text-xs font-semibold',
+                mom.kind === 'down' ? 'text-neg' : mom.kind === 'flat' ? 'text-muted' : 'text-mint',
+              )}
+            >
+              {mom.kind === 'new' ? '新增' : mom.kind === 'flat' ? '与上月持平' : `${mom.text} 较上月`}
+            </div>
+          )}
+        </div>
+        <div className="card p-5">
+          <div className="flex items-center gap-2 text-xs font-semibold text-muted">
+            <span className="grid h-8 w-8 place-items-center rounded-xl bg-brand-50 text-brand-500">
+              <Receipt size={16} />
+            </span>
+            充值笔数
+          </div>
+          <div className="mt-2 text-2xl font-bold tabular-nums text-ink">{rev.count}</div>
+        </div>
+        <div className="card p-5">
+          <div className="flex items-center gap-2 text-xs font-semibold text-muted">
+            <span className="grid h-8 w-8 place-items-center rounded-xl bg-pos/10 text-pos">
+              <Coins size={16} />
+            </span>
+            新增课时
+          </div>
+          <div className="mt-2 text-2xl font-bold tabular-nums text-ink">+{rev.credits}</div>
+        </div>
+        <div className="card p-5">
+          <div className="flex items-center gap-2 text-xs font-semibold text-muted">
+            <span className="grid h-8 w-8 place-items-center rounded-xl bg-rose/15 text-rose">
+              <Users size={16} />
+            </span>
+            涉及学生
+          </div>
+          <div className="mt-2 text-2xl font-bold tabular-nums text-ink">{rev.students}</div>
+        </div>
+      </div>
+
+      {/* 班型分布 */}
+      {typePills.length > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <span className="text-xs font-semibold text-muted">班型分布</span>
+          {typePills.map((p) => (
+            <Badge key={p.key} color={p.color} className="tabular-nums">
+              {p.label} ¥{(rev.byType[p.key] ?? 0).toLocaleString('zh-CN')}
+            </Badge>
+          ))}
+        </div>
+      )}
+
+      {/* 审计提示：未填金额（统计区与列表之间） */}
+      {rev.missingAmount > 0 && (
+        <button
+          type="button"
+          onClick={toggleMissing}
+          className="mb-5 flex w-full flex-wrap items-center gap-3 rounded-3xl border border-zero/25 px-5 py-4 text-left transition hover:border-zero/50"
+          style={{ backgroundColor: 'rgba(241,161,58,0.08)' }}
+        >
+          <span
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-xl text-zero"
+            style={{ backgroundColor: 'rgba(241,161,58,0.15)' }}
+          >
+            <AlertTriangle size={18} />
+          </span>
+          <span className="text-sm font-semibold text-ink">
+            本月有 {rev.missingAmount} 笔充值未填金额，收入合计可能偏低
+            <span className="ml-1.5 font-bold text-zero">→ {highlight ? '取消高亮' : '点击查看'}</span>
+          </span>
+        </button>
+      )}
+
       {/* 筛选：学生 + 月份 */}
       <div className="mb-5 flex flex-col gap-2.5 sm:flex-row sm:items-center">
         <div className="flex items-center gap-2 sm:w-64">
           <span className="shrink-0 text-xs font-semibold text-muted">学生</span>
-          <Select value={studentFilter} onChange={(e) => setStudentFilter(e.target.value)}>
+          <Select
+            value={studentFilter}
+            onChange={(e) => {
+              setStudentFilter(e.target.value)
+              setHighlight(null)
+            }}
+          >
             <option value="all">全部学生</option>
             {studentsSorted.map((s) => (
               <option key={s.id} value={s.id}>{s.name}</option>
@@ -102,8 +303,7 @@ export default function Recharges() {
         </div>
         <div className="flex items-center gap-2 sm:w-56">
           <span className="shrink-0 text-xs font-semibold text-muted">月份</span>
-          <Select value={monthFilter} onChange={(e) => setMonthFilter(e.target.value)}>
-            <option value="all">全部月份</option>
+          <Select value={month} onChange={(e) => pickMonth(e.target.value)}>
             {months.map((m) => (
               <option key={m} value={m}>{m.replace('-', ' 年 ')} 月</option>
             ))}
@@ -123,7 +323,10 @@ export default function Recharges() {
             {rows.map(({ t, stu, cls, consumed, remaining }) => (
               <div
                 key={t.id}
-                className="group flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl px-3 py-3 transition hover:bg-brand-50/60 sm:flex-nowrap"
+                className={cn(
+                  'group flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl px-3 py-3 transition hover:bg-brand-50/60 sm:flex-nowrap',
+                  highlight?.has(t.id) && 'bg-zero/10 ring-2 ring-zero/50',
+                )}
               >
                 {/* 充值日期（完整日期，prominent）*/}
                 <div className="w-28 shrink-0">

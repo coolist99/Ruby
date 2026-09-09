@@ -35,6 +35,19 @@ export function fmtDateShort(iso: string): string {
   return iso ? iso.slice(5).replace(/-/g, '/') : ''
 }
 
+/** '2026-09' 前后移动 n 个月（n 可为负）*/
+export function shiftYM(ym: string, n: number): string {
+  const [y, m] = ym.split('-').map(Number)
+  const d = new Date(y, m - 1 + n, 1)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
+/** '2026-09' -> '2026 年 9 月' */
+export function fmtYM(ym: string): string {
+  const [y, m] = ym.split('-').map(Number)
+  return `${y} 年 ${m} 月`
+}
+
 export const money = (n: number) => `¥${n.toLocaleString('zh-CN')}`
 
 export function relativeDay(iso: string): string {
